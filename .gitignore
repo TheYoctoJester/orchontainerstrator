@@ -1,0 +1,6 @@
+# Downloaded inputs (closed-source tarball, models) are not redistributed
+/downloads/
+# kas work dirs: checked-out layers, build tree, VM disk copies
+/my-*/
+/.venv/
+/artifacts/
