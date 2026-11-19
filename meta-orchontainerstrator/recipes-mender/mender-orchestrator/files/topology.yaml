@@ -1,0 +1,13 @@
+api_version: mender/v1
+kind: topology
+system_type: "orchontainer"
+
+components:
+  # The System device. component_type must equal the device_type
+  # (checked by the rootfs-image Interface during Download).
+  - component_type: qemuarm64
+    interface: rootfs-image
+
+  # Phase 0 instrument: logs every call, supports failure injection.
+  - component_type: probe
+    interface: probe

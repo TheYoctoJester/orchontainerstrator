@@ -1,0 +1,100 @@
+# Mender Orchestrator managing the parts of a single device
+# (rootfs, docker compose app, LLM model) on qemuarm64, Yocto 6.0 "wrynose".
+#
+# Phase 0 build: rootfs-image Interface plus a logging "probe" Interface,
+# docker + the official docker-compose Update Module installed, read-only rootfs.
+#
+# Run from my-qemuarm64/:
+#   env -u TMPDIR kas build ../kas/orchontainerstrator-qemuarm64.yml:tyj-local.yml:tyj-debug.yml:tyj-mender.yml
+
+header:
+  version: 20
+
+build_system: openembedded
+
+machine: qemuarm64
+distro: poky
+target: orchontainerstrator-image
+
+repos:
+  orchontainerstrator:
+    layers:
+      meta-orchontainerstrator:
+
+  bitbake:
+    url: "https://git.openembedded.org/bitbake"
+    branch: "2.18"
+    layers: {}
+
+  openembedded-core:
+    url: "https://git.openembedded.org/openembedded-core"
+    branch: "wrynose"
+    layers:
+      meta:
+
+  meta-yocto:
+    url: "https://git.yoctoproject.org/meta-yocto"
+    branch: "wrynose"
+    layers:
+      meta-poky:
+
+  meta-openembedded:
+    url: "https://git.openembedded.org/meta-openembedded"
+    branch: "wrynose"
+    layers:
+      meta-oe:
+      meta-python:
+      meta-networking:
+      meta-filesystems:
+
+  meta-virtualization:
+    url: "https://git.yoctoproject.org/meta-virtualization"
+    branch: "wrynose"
+
+  meta-arm:
+    url: "https://git.yoctoproject.org/meta-arm"
+    branch: "wrynose"
+    layers:
+      meta-arm:
+      meta-arm-toolchain:
+
+  meta-mender:
+    url: "https://github.com/mendersoftware/meta-mender"
+    branch: "wrynose"
+    layers:
+      meta-mender-core:
+      meta-mender-commercial:
+      meta-mender-extended:
+
+  meta-mender-community:
+    url: "https://github.com/mendersoftware/meta-mender-community"
+    branch: "wrynose"
+    layers:
+      meta-mender-qemu-community:
+
+local_conf_header:
+  orchontainerstrator-base: |
+    INIT_MANAGER = "systemd"
+    DISTRO_FEATURES:append = " virtualization efi"
+
+    INHERIT += "mender-full"
+    # qemuarm64 boots via EDK2 + grub-efi (meta-mender-qemu-community README)
+    EFI_PROVIDER = "grub-efi"
+    MACHINE_FEATURES:append = " efi"
+    MENDER_EFI_LOADER = "edk2-firmware"
+    # As in meta-arm ci/edk2.yml: EDK2 instead of the machine's default u-boot
+    PREFERRED_PROVIDER_virtual/bootloader = "edk2-firmware"
+    EXTRA_IMAGEDEPENDS += "edk2-firmware"
+    MENDER_STORAGE_DEVICE = "/dev/vda"
+    MENDER_STORAGE_TOTAL_SIZE_MB = "8192"
+    MENDER_DATA_PART_SIZE_MB = "4096"
+    # Later rootfs versions are derived from this one by scripts/phase0-artifacts.sh
+    MENDER_ARTIFACT_NAME = "rootfs-v1"
+
+  orchontainerstrator-orchestrator: |
+    LICENSE_FLAGS_ACCEPTED:append = " commercial_mender-yocto-layer-license"
+    # Sets MENDER_DEVICE_TIER = "system" and installs
+    # mender-orchestrator + mender-orchestrator-support
+    MENDER_FEATURES_ENABLE:append = " mender-orchestrator-install"
+    # Downloaded from downloads.customer.mender.io, kept out of git
+    ORCHONTAINER_ORCHESTRATOR_TARBALL = "/home/tyj/builds/orchontainerstrator/downloads/mender-orchestrator-1.0.0.tar.xz"

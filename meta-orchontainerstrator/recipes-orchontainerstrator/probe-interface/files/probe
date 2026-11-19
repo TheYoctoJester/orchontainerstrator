@@ -1,0 +1,107 @@
+#!/bin/sh
+# Phase 0 instrument Interface for Mender Orchestrator (protocol v1).
+#
+# Logs every invocation (state, arguments, File API contents) and keeps
+# Provides in current/previous files so that install, commit and rollback
+# (also after a commit) behave like a real Component.
+#
+# Failure injection: touch $BASE/<State>.FAIL
+# Reboot behaviour:  echo Automatic > $BASE/NeedsArtifactReboot
+
+STATE="$1"
+FILES="$2"
+COMPONENT_TYPE="$3"
+
+BASE="/data/orchontainerstrator/probe"
+CURRENT="$BASE/provides.current"
+PREVIOUS="$BASE/provides.previous"
+NONE_MARKER="$BASE/provides.previous-none"
+
+mkdir -p "$BASE"
+
+log() {
+    echo "$(date -Iseconds) [$COMPONENT_TYPE] $*" >> "$BASE/log"
+}
+
+log "$STATE args='$*' cwd=$(pwd)"
+
+if [ -f "$BASE/$STATE.FAIL" ]; then
+    log "$STATE: injected failure"
+    exit 1
+fi
+
+# Provides of the Artifact being installed: artifact_name from header-info
+# plus the type-info provides. device_type must never be returned.
+artifact_provides() {
+    jq -r '.artifact_provides.artifact_name // empty | "artifact_name=\(.)"' "$FILES/header/header-info"
+    jq -r '.artifact_provides // {} | to_entries[] | "\(.key)=\(.value)"' "$FILES/header/type-info"
+}
+
+case "$STATE" in
+    Identity)
+        id=$(/usr/share/mender/identity/mender-device-identity | sed -rn '1s/^[^=]+=//p')
+        echo "id=${id}-${COMPONENT_TYPE}"
+        ;;
+
+    Provides)
+        test -f "$CURRENT" && cat "$CURRENT"
+        ;;
+
+    Inventory)
+        version=$(sed -n 's/^artifact_name=//p' "$CURRENT" 2>/dev/null)
+        echo "version=${version:-none}"
+        ;;
+
+    SupportsRollback)
+        echo "Yes"
+        ;;
+
+    NeedsArtifactReboot)
+        if [ -f "$BASE/NeedsArtifactReboot" ]; then
+            cat "$BASE/NeedsArtifactReboot"
+        else
+            echo "No"
+        fi
+        ;;
+
+    Download|ArtifactInstall)
+        log "$STATE File API: $(cd "$FILES" && find . -maxdepth 2 | sort | tr '\n' ' ')"
+        if [ "$STATE" = "ArtifactInstall" ]; then
+            log "header-info: $(tr -d '\n' < "$FILES/header/header-info")"
+            log "type-info: $(tr -d '\n' < "$FILES/header/type-info")"
+            rm -f "$PREVIOUS" "$NONE_MARKER"
+            if [ -f "$CURRENT" ]; then
+                cp "$CURRENT" "$PREVIOUS"
+            else
+                touch "$NONE_MARKER"
+            fi
+            artifact_provides > "$CURRENT.tmp" || { log "reading provides failed"; exit 1; }
+            mv "$CURRENT.tmp" "$CURRENT"
+            sync "$BASE"
+            log "installed: $(tr '\n' ' ' < "$CURRENT")"
+        fi
+        ;;
+
+    ArtifactRollback)
+        if [ -f "$PREVIOUS" ]; then
+            mv "$PREVIOUS" "$CURRENT"
+        elif [ -f "$NONE_MARKER" ]; then
+            rm -f "$CURRENT" "$NONE_MARKER"
+        fi
+        sync "$BASE"
+        log "rolled back to: $(tr '\n' ' ' < "$CURRENT" 2>/dev/null)"
+        ;;
+
+    Cleanup)
+        rm -f "$PREVIOUS" "$NONE_MARKER"
+        ;;
+
+    ArtifactReboot|ArtifactVerifyReboot|ArtifactCommit|ArtifactRollbackReboot|ArtifactVerifyRollbackReboot|ArtifactFailure)
+        ;;
+
+    *)
+        # Unknown state or query: print nothing, succeed (protocol requirement).
+        ;;
+esac
+
+exit 0
