@@ -10,6 +10,11 @@ components:
   - component_type: qemuarm64
     interface: rootfs-image
 
+  # The docker compose application. The Interface wraps the docker-compose
+  # Update Module; its name must equal the Artifact payload type.
+  - component_type: app
+    interface: docker-compose
+
   # Phase 0 instrument: logs every call, supports failure injection.
   - component_type: probe
     interface: probe

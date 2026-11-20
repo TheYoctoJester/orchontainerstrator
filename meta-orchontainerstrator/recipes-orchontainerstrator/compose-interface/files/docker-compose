@@ -1,0 +1,93 @@
+#!/bin/sh
+# Mender Orchestrator Interface (protocol v1) for a docker compose project.
+# Named like the Update Module because Orchestrator requires the Interface
+# name to equal the Artifact payload type (docker-compose).
+#
+# The update work is done by the docker-compose Update Module from
+# mender-container-modules; this wrapper adds what the Update Module protocol
+# leaves to mender-update and Orchestrator expects from an Interface:
+# Identity, Provides and Inventory. Provides are kept in current/previous
+# files so that a rollback, also after a commit, reports the right version.
+#
+# The Update Module keeps a single composition in /data/mender-docker-compose,
+# so there can be only one Component using this Interface per device.
+
+STATE="$1"
+FILES="$2"
+COMPONENT_TYPE="$3"
+
+MODULE="/usr/share/mender/modules/v3/docker-compose"
+BASE="/data/orchontainerstrator/$COMPONENT_TYPE"
+CURRENT="$BASE/provides.current"
+PREVIOUS="$BASE/provides.previous"
+NONE_MARKER="$BASE/provides.previous-none"
+
+log() {
+    logger -t docker-compose-interface "[$COMPONENT_TYPE] $*"
+}
+
+# Provides of the Artifact being installed: artifact_name from header-info
+# plus the type-info provides. device_type must never be returned.
+artifact_provides() {
+    jq -r '.artifact_provides.artifact_name // empty | "artifact_name=\(.)"' "$FILES/header/header-info"
+    jq -r '.artifact_provides // {} | to_entries[] | "\(.key)=\(.value)"' "$FILES/header/type-info"
+}
+
+mkdir -p "$BASE"
+
+case "$STATE" in
+    Identity)
+        id=$(/usr/share/mender/identity/mender-device-identity | sed -rn '1s/^[^=]+=//p')
+        echo "id=${id}-${COMPONENT_TYPE}"
+        ;;
+
+    Provides)
+        test -f "$CURRENT" && cat "$CURRENT"
+        ;;
+
+    Inventory)
+        version=$(sed -n 's/^artifact_name=//p' "$CURRENT" 2>/dev/null)
+        echo "version=${version:-none}"
+        ;;
+
+    ArtifactInstall)
+        log "installing $(jq -r .artifact_provides.artifact_name "$FILES/header/header-info")"
+        rm -f "$PREVIOUS" "$NONE_MARKER"
+        if [ -f "$CURRENT" ]; then
+            cp "$CURRENT" "$PREVIOUS"
+        else
+            touch "$NONE_MARKER"
+        fi
+        sync "$BASE"
+        # The Update Module unpacks the images below tmp/.
+        mkdir -p "$FILES/tmp"
+        "$MODULE" ArtifactInstall "$FILES" || { log "Update Module ArtifactInstall failed"; exit 1; }
+        artifact_provides > "$CURRENT.tmp" || { log "reading provides failed"; exit 1; }
+        mv "$CURRENT.tmp" "$CURRENT"
+        sync "$BASE"
+        ;;
+
+    ArtifactRollback)
+        "$MODULE" ArtifactRollback "$FILES" || { log "Update Module ArtifactRollback failed"; exit 1; }
+        if [ -f "$PREVIOUS" ]; then
+            mv "$PREVIOUS" "$CURRENT"
+        elif [ -f "$NONE_MARKER" ]; then
+            rm -f "$CURRENT" "$NONE_MARKER"
+        fi
+        sync "$BASE"
+        log "rolled back to: $(tr '\n' ' ' < "$CURRENT" 2>/dev/null)"
+        ;;
+
+    Cleanup)
+        "$MODULE" Cleanup "$FILES" || { log "Update Module Cleanup failed"; exit 1; }
+        rm -f "$PREVIOUS" "$NONE_MARKER"
+        ;;
+
+    *)
+        # ArtifactCommit, SupportsRollback, NeedsArtifactReboot and the rest:
+        # the Update Module answers, and ignores what it does not know.
+        exec "$MODULE" "$STATE" "$FILES"
+        ;;
+esac
+
+exit 0

@@ -12,6 +12,7 @@ IMAGE_INSTALL = " \
     packagegroup-core-boot \
     ${CORE_IMAGE_EXTRA_INSTALL} \
     mender-docker-compose \
+    compose-interface \
     container-storage \
     persistent-journal \
     persistent-state \
