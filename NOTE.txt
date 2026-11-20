@@ -1,25 +1,16 @@
 orchontainerstrator
 ===================
 
-Purpose: evaluate whether Mender Orchestrator can manage the parts of a
-single device (base OS rootfs, a docker compose application, an LLM model)
-as independently updated Components with ordered installs and System-wide
-rollback, instead of one monolithic Artifact.
+Why this build exists: evaluate whether Mender Orchestrator can manage the
+parts of a single device (base OS rootfs, a docker compose application, an
+LLM model) as independently updated Components with ordered installs and
+System-wide rollback, instead of one monolithic Artifact.
 
 Order of outputs: internal evaluation -> scripted live demo -> Mender Hub article.
 
-Target: Yocto 6.0 "wrynose", MACHINE qemuarm64 (EDK2 + grub-efi, TCG),
-read-only rootfs, hosted Mender (Enterprise plan, system device tier).
+Status: all three stages (phase0, compose, llm) replay from scratch with
+scripts/replay.sh. See README.md for how to build and run, docs/ for results.
 
-Phase 0 (current): rootfs-image Interface plus a logging "probe" Interface;
-docker + official mender-container-modules docker-compose module installed.
-Verify on the device: client bundle >= 6.0, nested mender-update in the
-rootfs-image Interface, Provides-based skipping, read-only rootfs writers.
-
-Build (from my-qemuarm64/, which holds symlinks to ~/kas/tyj-*.yml):
-  env -u TMPDIR kas build ../kas/orchontainerstrator-qemuarm64.yml:tyj-local.yml:tyj-debug.yml:tyj-mender.yml
-Run:
-  scripts/run-qemu.sh [--reset]
-
-Not in git: downloads/ (mender-orchestrator-1.0.0.tar.xz from
-downloads.customer.mender.io, GGUF models), my-*/ (kas work dirs).
+Local builds on this host: symlink ~/kas/tyj-local.yml into my-qemuarm64/
+and run with KAS_EXTRA=tyj-local.yml (shared DL_DIR and sstate); replay.sh
+already runs kas with env -u TMPDIR.

@@ -1,11 +1,11 @@
 # Mender Orchestrator managing the parts of a single device
-# (rootfs, docker compose app, LLM model) on qemuarm64, Yocto 6.0 "wrynose".
+# (rootfs, docker compose app, LLM model) on qemuarm64, Yocto 6.0 "wrynose",
+# read-only rootfs.
 #
-# Phase 0 build: rootfs-image Interface plus a logging "probe" Interface,
-# docker + the official docker-compose Update Module installed, read-only rootfs.
-#
-# Run from my-qemuarm64/:
-#   env -u TMPDIR kas build ../kas/orchontainerstrator-qemuarm64.yml:tyj-local.yml:tyj-debug.yml:tyj-mender.yml
+# Built with a stage override (Topology and rootfs name) plus the hosted
+# Mender connection and the demo SSH access, from my-qemuarm64/:
+#   kas build ../kas/orchontainerstrator-qemuarm64.yml:../kas/stage-llm.yml:../kas/mender-hosted.yml:../kas/demo-access.yml
+# scripts/replay.sh does this for all three stages.
 
 header:
   version: 20
