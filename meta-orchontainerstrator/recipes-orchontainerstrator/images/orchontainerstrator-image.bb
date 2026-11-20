@@ -3,8 +3,9 @@ LICENSE = "MIT"
 
 inherit core-image
 
-# Everything mutable lives on /data; finding what still writes is part of
-# the evaluation.
+# Every write is classified: Mender and system state on /data, the journal
+# on the log partition, containers and models on /apps, the rest ephemeral
+# in tmpfs. Finding what still writes is part of the evaluation.
 IMAGE_FEATURES += "read-only-rootfs"
 
 IMAGE_INSTALL = " \

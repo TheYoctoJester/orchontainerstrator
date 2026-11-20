@@ -1,4 +1,4 @@
-# containerd keeps images and snapshots on the data partition; the rootfs is read-only.
+# containerd keeps images and snapshots on the apps partition; the rootfs is read-only.
 version = 3
-root = "/data/containerd"
+root = "/apps/containerd"
 state = "/run/containerd"

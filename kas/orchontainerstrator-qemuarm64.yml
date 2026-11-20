@@ -87,9 +87,28 @@ local_conf_header:
     EXTRA_IMAGEDEPENDS += "edk2-firmware"
     MENDER_STORAGE_DEVICE = "/dev/vda"
     MENDER_STORAGE_TOTAL_SIZE_MB = "8192"
-    MENDER_DATA_PART_SIZE_MB = "4096"
     # Later rootfs versions are derived from this one by scripts/phase0-artifacts.sh
     MENDER_ARTIFACT_NAME = "rootfs-v1"
+
+  orchontainerstrator-partitions: |
+    # Partition per class of writes; each one can fill up without starving
+    # the others. Sizes are fixed for the device's lifetime, and
+    # mender-growfs-data is off once extra partitions exist.
+    #   /data     Mender, Orchestrator and Interface state, persisted system
+    #             state; also stages non-streamed payloads (docker-compose
+    #             module: images.tar.gz plus its extracted copy)
+    #   /var/log  persistent journal
+    #   /apps     docker and containerd data, LLM model slots
+    MENDER_DATA_PART_SIZE_MB = "1024"
+    MENDER_EXTRA_PARTS = "log apps"
+    MENDER_EXTRA_PARTS[log] = "--fstype=ext4 --label=log"
+    MENDER_EXTRA_PARTS_SIZES_MB[log] = "256"
+    MENDER_EXTRA_PARTS_MOUNT_LOCATIONS[log] = "/var/log"
+    MENDER_EXTRA_PARTS_FSTAB[log] = "ext4 defaults"
+    MENDER_EXTRA_PARTS[apps] = "--fstype=ext4 --label=apps"
+    MENDER_EXTRA_PARTS_SIZES_MB[apps] = "4096"
+    MENDER_EXTRA_PARTS_MOUNT_LOCATIONS[apps] = "/apps"
+    MENDER_EXTRA_PARTS_FSTAB[apps] = "ext4 defaults"
 
   orchontainerstrator-orchestrator: |
     LICENSE_FLAGS_ACCEPTED:append = " commercial_mender-yocto-layer-license"
