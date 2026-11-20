@@ -104,6 +104,12 @@ Findings:
   matched. Same name, different content gets installed; that is the right
   behaviour, and it corrects the earlier reading that only the version is
   compared. Orchestrator does not log the reason for installing a Component.
+- **The built Artifact provides more than its payload.** A device flashed
+  with the build starts with ten `rootfs-image.update-module.<module>.*`
+  Provides from the built Artifact. A `rootfs-v1` written again from the
+  dumped payload lacks them, so even with the right checksum it is
+  installed instead of skipped (seen in the fresh end-to-end replay).
+  `scripts/phase0-artifacts.sh` now carries them over.
 - **The rootfs commit overwrites the System's `artifact_name`.** In the
   commit phase mender-update first records the Manifest
   (`artifact_name=<manifest>`), then Orchestrator's deferred rootfs commit

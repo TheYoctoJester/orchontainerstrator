@@ -37,11 +37,24 @@ test -f "$BUILT" || { echo "no built .mender in $DEPLOY" >&2; exit 1; }
 rm -rf dump && mkdir dump
 mender-artifact dump --files dump "$BUILT"
 ROOTFS=$(ls dump/* | head -n1)
+# The built Artifact also provides rootfs-image.update-module.<module>.*
+# keys (versioned with the build name); a device flashed with the build
+# starts with them. Carry them over, or the Provides of rootfs-v1 differ
+# from the flashed image and the Orchestrator installs instead of skipping.
+BUILT_NAME=$(mender-artifact read "$BUILT" 2>/dev/null | sed -n 's/^ *Name: //p' | head -n1)
+MODULE_PROVIDES=$(mender-artifact read "$BUILT" 2>/dev/null \
+    | sed -n 's/^ *\(rootfs-image\.update-module\.[^:]*\): \(.*\)$/\1:\2/p')
 for v in v1 v2; do
+    set --
+    for p in $MODULE_PROVIDES; do
+        test "${p#*:}" = "$BUILT_NAME" && p="${p%%:*}:rootfs-$v"
+        set -- "$@" --provides "$p"
+    done
     mender-artifact write rootfs-image \
         --file "$ROOTFS" \
         --compatible-types "$DEVICE_TYPE" \
         --artifact-name rootfs-$v \
+        "$@" \
         --output-path rootfs-$v.mender
 done
 rm -rf dump
