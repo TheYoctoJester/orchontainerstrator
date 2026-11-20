@@ -14,15 +14,15 @@
 #   mender-api.sh delete-project          delete them and decommission the device
 #
 # The device is the one with the MAC from my-qemuarm64/run/mac (written by
-# scripts/run-qemu.sh), or DEVICE_MAC.
+# scripts/run-qemu.sh), or DEVICE_MAC. Artifacts and Manifests count as this
+# project's when their description is $DESCRIPTION, which upload sets; other
+# releases on the tenant are never touched.
 set -e
 
 : "${MENDER_HOSTED_PAT:?}"
 TOP=$(cd "$(dirname "$0")/.." && pwd)
 SERVER="https://hosted.mender.io/api/management"
-# Everything this project uploads; other releases are never touched.
-ARTIFACT_RE='^(rootfs-|probe-|app-|llm-|model-)'
-MANIFEST_RE='^(m[1-3]-|a[1-4]-|c[0-9]+-|v1-)'
+DESCRIPTION="orchontainerstrator"
 
 api() {
     curl -sS -H "Authorization: Bearer $MENDER_HOSTED_PAT" "$@"
@@ -31,7 +31,7 @@ api() {
 upload() {
     local out code
     out=$(mktemp)
-    code=$(api -o "$out" -w '%{http_code}' --form-string "description=orchontainerstrator" \
+    code=$(api -o "$out" -w '%{http_code}' --form-string "description=$DESCRIPTION" \
         -F "artifact=@$2" "$SERVER/v1/deployments/$1")
     echo "$(basename "$2"): $code $(head -c 200 "$out")"
     rm -f "$out"
@@ -76,12 +76,18 @@ accept() {
         -d '{"status":"accepted"}' "$SERVER/v2/devauth/devices/$dev/auth/$aid/status"
 }
 
+# Manifest Artifacts are listed here too; they go through the manifests
+# endpoint instead.
 project_artifacts() {
-    api "$SERVER/v1/deployments/artifacts" | jq -r --arg re "$ARTIFACT_RE" '.[] | select(.name | test($re)) | "\(.id) \(.name)"'
+    api "$SERVER/v1/deployments/artifacts" \
+        | jq -r --arg d "$DESCRIPTION" '.[] | select(.description == $d)
+            | select(all(.updates[]?; .type_info.type != "mender-orchestrator-manifest"))
+            | "\(.id) \(.name)"'
 }
 
 project_manifests() {
-    api "$SERVER/v1/deployments/manifests?per_page=500" | jq -r --arg re "$MANIFEST_RE" '.[] | select(.name | test($re)) | .name'
+    api "$SERVER/v1/deployments/manifests?per_page=500" \
+        | jq -r --arg d "$DESCRIPTION" '.[] | select(.artifact.description == $d) | .name'
 }
 
 case "$1" in
