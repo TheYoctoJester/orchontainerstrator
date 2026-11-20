@@ -13,9 +13,11 @@
 #   scripts/replay.sh llm        rollout to the LLM Topology, L0-L4
 #   scripts/replay.sh tests      phase0, compose and llm in order
 #
-# Every test prints one PASS/FAIL line into artifacts/replay/results.txt.
-# Expected results are the ones established in docs/*-results.md, including
-# the known failure of M1b (Update Module, up-to-date Manifest).
+# Every test prints one line into artifacts/replay/results.txt: PASS or
+# FAIL; XFAIL/XPASS for M1b, which reproduces a known Update Module bug (an
+# up-to-date Manifest fails the deployment), XPASS meaning it got fixed.
+# Expected results are the ones established in docs/*-results.md. "tests"
+# starts a new results file and exits non-zero if anything FAILed.
 #
 # Environment:
 #   MENDER_HOSTED_USER, MENDER_HOSTED_PASS  Orchestrator tarball download (build)
@@ -83,6 +85,11 @@ result() {   # result <test> <PASS|FAIL> <detail>
 check() {    # check <test> <detail> <command...>
     local t="$1" d="$2"; shift 2
     if "$@"; then result "$t" PASS "$d"; else result "$t" FAIL "$d"; fi
+}
+
+xfail() {    # xfail <test> <detail> <command...>: the command reproduces a known bug
+    local t="$1" d="$2"; shift 2
+    if "$@"; then result "$t" XFAIL "$d"; else result "$t" XPASS "$d"; fi
 }
 
 # same_boot <boot id>: no reboot happened since
@@ -195,7 +202,7 @@ do_phase0() {
               has "qemuarm64.*rootfs-image.version=rootfs-v2" "probe.*probe.version=v2"'
 
     log "phase 0 managed"
-    check M1b "installed Manifest fails (known Update Module issue)" \
+    xfail M1b "installed Manifest fails the deployment (Update Module bug)" \
         deploy M1b m2-rootfs-v2 failure
     dev "rm -f $PROBE/provides.*"
     b=$(boot_id)
@@ -255,6 +262,10 @@ case "$1" in
     phase0) do_phase0 ;;
     compose) do_compose ;;
     llm) do_llm ;;
-    tests) do_phase0; do_compose; do_llm ;;
+    tests)
+        : > "$RESULTS"
+        do_phase0; do_compose; do_llm
+        ! grep -q ' FAIL ' "$RESULTS"
+        ;;
     *) sed -n '2,20p' "$0"; exit 1 ;;
 esac
