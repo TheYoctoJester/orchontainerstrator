@@ -13,6 +13,7 @@ IMAGE_INSTALL = " \
     ${CORE_IMAGE_EXTRA_INSTALL} \
     mender-docker-compose \
     container-storage \
+    persistent-journal \
     probe-interface \
     ca-certificates \
     curl \

@@ -110,6 +110,15 @@ local_conf_header:
     MENDER_EXTRA_PARTS_MOUNT_LOCATIONS[apps] = "/apps"
     MENDER_EXTRA_PARTS_FSTAB[apps] = "ext4 defaults"
 
+  orchontainerstrator-logs: |
+    # /var/log is a real directory (mount point of the log partition)
+    # instead of a symlink into the /var/volatile tmpfs.
+    FILESYSTEM_PERMS_TABLES:remove = "files/fs-perms-volatile-log.txt"
+    # Journal only: no busybox syslogd/klogd duplicating it into
+    # /var/log/messages, no wtmp/utmp bookkeeping.
+    VIRTUAL-RUNTIME_base-utils-syslog = ""
+    PACKAGECONFIG:remove:pn-systemd = "utmp"
+
   orchontainerstrator-orchestrator: |
     LICENSE_FLAGS_ACCEPTED:append = " commercial_mender-yocto-layer-license"
     # Sets MENDER_DEVICE_TIER = "system" and installs
