@@ -128,5 +128,3 @@ local_conf_header:
     # Sets MENDER_DEVICE_TIER = "system" and installs
     # mender-orchestrator + mender-orchestrator-support
     MENDER_FEATURES_ENABLE:append = " mender-orchestrator-install"
-    # Downloaded from downloads.customer.mender.io, kept out of git
-    ORCHONTAINER_ORCHESTRATOR_TARBALL = "/home/tyj/builds/orchontainerstrator/downloads/mender-orchestrator-1.0.0.tar.xz"

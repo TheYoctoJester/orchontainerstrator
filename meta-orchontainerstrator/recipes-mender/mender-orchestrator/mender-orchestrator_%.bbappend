@@ -1,6 +1,8 @@
 # Point the closed-source recipe at the locally downloaded tarball and ship
 # this project's Topology. The tarball must stay the first SRC_URI entry.
-ORCHONTAINER_ORCHESTRATOR_TARBALL ??= ""
+# scripts/setup.sh downloads it into downloads/ at the top of this repository.
+ORCHONTAINER_TOP := "${@os.path.abspath(os.path.join(d.getVar('THISDIR'), '../../..'))}"
+ORCHONTAINER_ORCHESTRATOR_TARBALL ??= "${ORCHONTAINER_TOP}/downloads/mender-orchestrator-1.0.0.tar.xz"
 
 # One Topology per test stage (phase0, compose, llm), chosen by
 # ORCHONTAINER_STAGE; each stage adds a Component.
