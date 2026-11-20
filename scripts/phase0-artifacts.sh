@@ -27,13 +27,16 @@ DEVICE_TYPE="qemuarm64"
 DEVICE_DIR="/data/phase0"
 PATH="$TOP/.venv/bin:$PATH"
 
+# BUILT=<file> uses a specific build instead of the latest one. Resolved
+# before the cd below, so a relative path works too.
+BUILT="${BUILT:-$DEPLOY/orchontainerstrator-image-qemuarm64.mender}"
+test -f "$BUILT" || { echo "no built .mender: $BUILT" >&2; exit 1; }
+BUILT=$(realpath "$BUILT")
+
 mkdir -p "$OUT"
 cd "$OUT"
 
 # --- rootfs ---------------------------------------------------------------
-# BUILT=<file> uses a specific build instead of the latest one
-BUILT="${BUILT:-$DEPLOY/orchontainerstrator-image-qemuarm64.mender}"
-test -f "$BUILT" || { echo "no built .mender in $DEPLOY" >&2; exit 1; }
 rm -rf dump && mkdir dump
 mender-artifact dump --files dump "$BUILT"
 ROOTFS=$(ls dump/* | head -n1)
