@@ -85,6 +85,11 @@ check() {    # check <test> <detail> <command...>
     if "$@"; then result "$t" PASS "$d"; else result "$t" FAIL "$d"; fi
 }
 
+# same_boot <boot id>: no reboot happened since
+same_boot() {
+    [ "$(boot_id)" = "$1" ] || { log "unexpected reboot"; return 1; }
+}
+
 deploy() {   # deploy <test> <manifest> <expected device status>
     local st
     st=$("$API" deploy "replay-$1-$(date +%H%M%S)" "$2" 1800 | tail -n1)
@@ -161,9 +166,10 @@ do_phase0() {
     log "phase 0 standalone"
     "$S/phase0-push.sh" > /dev/null
 
+    b=$(boot_id)
     dev "mender-orchestrator install /data/phase0/m1-probe-v1.yaml" > /dev/null 2>&1 || true
-    check T1 "rootfs-v1 skipped, probe-v1 installed" \
-        has 'qemuarm64.*rootfs-image.version=rootfs-v1' 'probe.*probe.version=v1'
+    check T1 "rootfs-v1 skipped (no reboot), probe-v1 installed" \
+        eval 'same_boot "$b" && has "qemuarm64.*rootfs-image.version=rootfs-v1" "probe.*probe.version=v1"'
 
     out=$(dev "mender-orchestrator install /data/phase0/m1-probe-v1.yaml" 2>&1 || true)
     check T1b "nothing to install" grep -q "already up to date" <<< "$out"
@@ -192,8 +198,9 @@ do_phase0() {
     check M1b "installed Manifest fails (known Update Module issue)" \
         deploy M1b m2-rootfs-v2 failure
     dev "rm -f $PROBE/provides.*"
-    check M1 "rootfs skipped, probe from the server" \
-        eval 'deploy M1 m2-rootfs-v2 success && has "probe.*probe.version=v2"'
+    b=$(boot_id)
+    check M1 "rootfs skipped (no reboot), probe from the server" \
+        eval 'deploy M1 m2-rootfs-v2 success && same_boot "$b" && has "probe.*probe.version=v2"'
     check M2 "rootfs-v1 with reboot, then probe-v1" \
         eval 'deploy M2 m1-probe-v1 success && has "qemuarm64.*rootfs-image.version=rootfs-v1" "probe.*probe.version=v1"'
     dev "touch $PROBE/ArtifactCommit.FAIL"
@@ -211,7 +218,8 @@ do_compose() {
         eval 'deploy A1 c2-a1-app-v1 success && curl -s -m 10 localhost:18080 | grep -q "app v1"'
     check A2 "app-v2, old image removed" \
         eval 'deploy A2 c2-a2-app-v2 success && curl -s -m 10 localhost:18080 | grep -q "app v2" &&
-              ! dev "docker images --format {{.Tag}}" | grep -q 1.36.1'
+              tags=$(dev "docker images --format {{.Tag}}") && grep -q 1.37.0 <<< "$tags" &&
+              ! grep -q 1.36.1 <<< "$tags"'
     check A3 "broken healthcheck rolled back to v2" \
         eval 'deploy A3 c2-a3-app-broken failure && curl -s -m 10 localhost:18080 | grep -q "app v2"'
     dev "touch $PROBE/ArtifactCommit.FAIL"
@@ -232,7 +240,9 @@ do_llm() {
         eval 'deploy L2 c3-l2-model-360m success && has "model.*artifact_name=model-smollm2-360m"'
     check L3 "Qwen3 on b5074 rolled back, server answers" \
         eval 'deploy L3 c3-l3-qwen3-old failure && has "model.*artifact_name=model-smollm2-360m" &&
-              [ -n "$(completion)" ] && ! dev "journalctl -t llm-model-interface -b --since -10min" | grep -q "failed its self-test after the rollback"'
+              [ -n "$(completion)" ] &&
+              j=$(dev "journalctl -t llm-model-interface -b --since -10min") && grep -q "rolled back to" <<< "$j" &&
+              ! grep -q "failed its self-test after the rollback" <<< "$j"'
     check L4 "server b5106, then Qwen3" \
         eval 'deploy L4 c3-l4-qwen3-new success && has "model.*artifact_name=model-qwen3-0.6b" "app.*artifact_name=llm-b5106" &&
               [ -n "$(completion)" ]'
