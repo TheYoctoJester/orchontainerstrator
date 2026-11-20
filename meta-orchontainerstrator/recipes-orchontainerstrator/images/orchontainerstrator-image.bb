@@ -14,6 +14,7 @@ IMAGE_INSTALL = " \
     mender-docker-compose \
     container-storage \
     persistent-journal \
+    persistent-state \
     probe-interface \
     ca-certificates \
     curl \

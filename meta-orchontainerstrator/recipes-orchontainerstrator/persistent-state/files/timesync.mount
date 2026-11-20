@@ -1,0 +1,15 @@
+# timesyncd's clock file: its mtime is the lower bound for the system clock
+# at boot, so it has to survive reboots.
+[Unit]
+Description=Persisted timesyncd state on /data
+DefaultDependencies=no
+Requires=persistent-state-dirs.service
+After=persistent-state-dirs.service var-volatile-lib.service
+Conflicts=umount.target
+Before=umount.target
+
+[Mount]
+What=/data/system/timesync
+Where=/var/lib/systemd/timesync
+Type=none
+Options=bind

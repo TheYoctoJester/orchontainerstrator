@@ -1,0 +1,14 @@
+# Saved entropy for the next boot; credited at boot only if it survived.
+[Unit]
+Description=Persisted random seed on /data
+DefaultDependencies=no
+Requires=persistent-state-dirs.service
+After=persistent-state-dirs.service var-volatile-lib.service
+Conflicts=umount.target
+Before=umount.target
+
+[Mount]
+What=/data/system/random-seed
+Where=/var/lib/systemd/random-seed
+Type=none
+Options=bind

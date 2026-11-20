@@ -1,0 +1,11 @@
+[Unit]
+Description=Create the persisted system state locations on /data
+DefaultDependencies=no
+RequiresMountsFor=/data
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/mkdir -p /data/system/timesync
+# no install(1) on the image; touch keeps an existing seed
+ExecStart=/bin/sh -c 'umask 077 && touch /data/system/random-seed'
