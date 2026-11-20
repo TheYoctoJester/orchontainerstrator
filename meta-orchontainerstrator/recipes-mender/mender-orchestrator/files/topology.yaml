@@ -2,6 +2,8 @@ api_version: mender/v1
 kind: topology
 system_type: "orchontainer"
 
+# Ships in the rootfs; /data/mender-orchestrator/topology.yaml links here.
+# Every Component listed here must be named in every Manifest.
 components:
   # The System device. component_type must equal the device_type
   # (checked by the rootfs-image Interface during Download).
