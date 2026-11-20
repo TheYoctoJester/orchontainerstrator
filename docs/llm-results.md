@@ -47,9 +47,19 @@ Findings:
   restart count from before `docker restart`, so after the crash loop in
   L3 the rollback's own self-test reported a false failure ("previous model
   failed its self-test after the rollback") although the server answered.
-  Fixed in the Interface (baseline read after the restart); the fix is not
-  yet on the device (rootfs-c3).
+  Fixed in the Interface (baseline read after the restart), shipped as
+  rootfs-c4 and re-run, see below.
 - Download for a Component runs when its turn in the order comes, not up
   front: in L4 the model streamed after the app had been installed.
 - llama.cpp loads the models in seconds even under TCG; the self-test
   completion took 2 to 10 s.
+
+## Re-run of L3 with the fix (rootfs-c4)
+
+Table `manifests/llm-rerun.txt`. From llm-b5106 + Qwen3:
+
+| Test | Manifest | Result |
+|---|---|---|
+| R0 | rootfs-c4, everything else unchanged | pass; only the rootfs installed, the server came back healthy after the reboot |
+| R1 | model-360m (order 15), llm-b5074 (20) | pass; model first, because b5074 cannot load the active Qwen3 |
+| L3 | llm-b5074, model-qwen3 | pass; server crashed on load, rollback to slot b, the rollback's self-test now passes ("Paris, a city known for its historical") |
