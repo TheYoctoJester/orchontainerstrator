@@ -1,0 +1,16 @@
+# Connect the device to hosted Mender (US instance). The tenant token comes
+# from the environment and never ends up in a file:
+#   export MENDER_TENANT_TOKEN=...
+# The tenant needs the Enterprise plan for Mender Orchestrator.
+header:
+  version: 20
+
+env:
+  MENDER_TENANT_TOKEN: null
+
+local_conf_header:
+  orchontainerstrator-server: |
+    MENDER_SERVER_URL = "https://hosted.mender.io"
+    MENDER_UPDATE_POLL_INTERVAL_SECONDS = "60"
+    MENDER_INVENTORY_POLL_INTERVAL_SECONDS = "300"
+    MENDER_RETRY_POLL_INTERVAL_SECONDS = "30"

@@ -17,7 +17,13 @@
 # Expected results are the ones established in docs/*-results.md, including
 # the known failure of M1b (Update Module, up-to-date Manifest).
 #
-# Needs MENDER_HOSTED_PAT, MENDER_HOSTED_USER, MENDER_HOSTED_PASS.
+# Environment:
+#   MENDER_HOSTED_USER, MENDER_HOSTED_PASS  Orchestrator tarball download (build)
+#   MENDER_TENANT_TOKEN                     built into the image (build)
+#   MENDER_HOSTED_PAT                       server API (upload, flash, tests)
+#   KAS_EXTRA   optional extra kas overrides, colon separated, placed in
+#               my-qemuarm64/ (kas only takes override files from inside
+#               this repository), e.g. for DL_DIR and SSTATE_DIR
 set -e
 
 TOP=$(cd "$(dirname "$0")/.." && pwd)
@@ -25,7 +31,7 @@ S="$TOP/scripts"
 OUT="$TOP/artifacts"
 BUILDS="$OUT/builds"
 RESULTS="$OUT/replay/results.txt"
-KAS_TYJ="tyj-local.yml:tyj-debug.yml:tyj-mender.yml"
+KAS="../kas/mender-hosted.yml:../kas/demo-access.yml${KAS_EXTRA:+:$KAS_EXTRA}"
 DEPLOY="$TOP/my-qemuarm64/build/tmp/deploy/images/qemuarm64"
 API="$S/mender-api.sh"
 PROBE="/data/orchontainerstrator/probe"
@@ -95,24 +101,24 @@ completion() {
 build_stage() {   # build_stage <stage>
     log "building stage $1"
     (cd "$TOP/my-qemuarm64" && env -u TMPDIR kas build \
-        "../kas/orchontainerstrator-qemuarm64.yml:../kas/stage-$1.yml:$KAS_TYJ" \
-        > "$TOP/my-qemuarm64/build-replay-$1.log" 2>&1)
+        "../kas/orchontainerstrator-qemuarm64.yml:../kas/stage-$1.yml:$KAS" \
+        > "$TOP/my-qemuarm64/build-replay-$1.log" 2>&1) \
+        || { log "build failed, see my-qemuarm64/build-replay-$1.log"; return 1; }
     cp -L "$DEPLOY/orchontainerstrator-image-qemuarm64.mender" "$BUILDS/$1.mender"
     cp -L --sparse=always "$DEPLOY/orchontainerstrator-image-qemuarm64.uefiimg" "$BUILDS/$1.uefiimg"
 }
 
 do_build() {
+    : "${MENDER_TENANT_TOKEN:?the image needs the tenant token}"
     "$S/setup.sh"
     mkdir -p "$TOP/my-qemuarm64"
-    (cd "$TOP/my-qemuarm64" && for f in tyj-local tyj-debug tyj-mender; do
-        ln -sf "$HOME/kas/$f.yml" "$f.yml"; done)
     build_stage phase0
     BUILT="$BUILDS/phase0.mender" "$S/phase0-artifacts.sh" > /dev/null
     build_stage compose
     build_stage llm
     log "skopeo-native for the compose Artifacts"
     (cd "$TOP/my-qemuarm64" && env -u TMPDIR kas shell \
-        "../kas/orchontainerstrator-qemuarm64.yml:../kas/stage-llm.yml:$KAS_TYJ" \
+        "../kas/orchontainerstrator-qemuarm64.yml:../kas/stage-llm.yml:$KAS" \
         -c "bitbake skopeo-native -c addto_recipe_sysroot" > build-replay-skopeo.log 2>&1)
     "$S/compose-artifacts.sh" > /dev/null
     "$S/model-artifacts.sh" > /dev/null
