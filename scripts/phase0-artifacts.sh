@@ -1,8 +1,7 @@
 #!/bin/sh
 # Generate phase 0 Artifacts and Manifest Artifacts into artifacts/phase0/.
 #
-#   rootfs-v1.mender   the built rootfs Artifact (renamed copy)
-#   rootfs-v2.mender   same rootfs payload, re-written as rootfs-v2
+#   rootfs-v1/v2       the built rootfs payload, written under both names
 #   probe-v1/v2.mender module-image Artifacts for the "probe" Interface
 #   m1..m3 Manifests, in two variants:
 #     ./                 with artifact_path, for standalone runs (phase0-push.sh)
@@ -34,16 +33,16 @@ cd "$OUT"
 # --- rootfs ---------------------------------------------------------------
 BUILT="$DEPLOY/orchontainerstrator-image-qemuarm64.mender"  # symlink to latest build
 test -f "$BUILT" || { echo "no built .mender in $DEPLOY" >&2; exit 1; }
-cp "$BUILT" rootfs-v1.mender
-
 rm -rf dump && mkdir dump
-mender-artifact dump --files dump rootfs-v1.mender
+mender-artifact dump --files dump "$BUILT"
 ROOTFS=$(ls dump/* | head -n1)
-mender-artifact write rootfs-image \
-    --file "$ROOTFS" \
-    --compatible-types "$DEVICE_TYPE" \
-    --artifact-name rootfs-v2 \
-    --output-path rootfs-v2.mender
+for v in v1 v2; do
+    mender-artifact write rootfs-image \
+        --file "$ROOTFS" \
+        --compatible-types "$DEVICE_TYPE" \
+        --artifact-name rootfs-$v \
+        --output-path rootfs-$v.mender
+done
 rm -rf dump
 
 # --- probe ----------------------------------------------------------------
