@@ -92,7 +92,7 @@ local_conf_header:
     SERIAL_CONSOLES = "115200;ttyAMA0"
     # Bump for every build that gets uploaded: the server keys Artifacts by
     # name, and a rebuilt rootfs under an old name has different content.
-    MENDER_ARTIFACT_NAME = "rootfs-c3"
+    MENDER_ARTIFACT_NAME = "rootfs-c4"
 
   orchontainerstrator-partitions: |
     # Partition per class of writes; each one can fill up without starving

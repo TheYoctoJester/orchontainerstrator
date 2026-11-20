@@ -1,0 +1,6 @@
+# Re-run of L3 with the fixed rollback self-test (rootfs-c4).
+# Start state: llm-b5106 + model-qwen3-0.6b.
+r0-rootfs        qemuarm64=@rootfs:10 app=llm-b5106:20 model=model-qwen3-0.6b:25 probe=probe-v1:30
+# b5074 cannot load qwen3: the model goes back first, then the server.
+r1-back-to-b5074 qemuarm64=@rootfs:10 model=model-smollm2-360m:15 app=llm-b5074:20 probe=probe-v1:30
+l3-qwen3-old     qemuarm64=@rootfs:10 app=llm-b5074:20 model=model-qwen3-0.6b:25 probe=probe-v1:30
