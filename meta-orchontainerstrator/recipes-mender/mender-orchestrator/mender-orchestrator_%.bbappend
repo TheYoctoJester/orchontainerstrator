@@ -2,7 +2,10 @@
 # this project's Topology. The tarball must stay the first SRC_URI entry.
 ORCHONTAINER_ORCHESTRATOR_TARBALL ??= ""
 
-FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+# One Topology per test stage (phase0, compose, llm), chosen by
+# ORCHONTAINER_STAGE; each stage adds a Component.
+ORCHONTAINER_STAGE ??= "llm"
+FILESEXTRAPATHS:prepend := "${THISDIR}/files/${ORCHONTAINER_STAGE}:"
 SRC_URI = "file://${ORCHONTAINER_ORCHESTRATOR_TARBALL} file://topology.yaml"
 
 # The Topology belongs to the rootfs, next to the Interfaces it references:

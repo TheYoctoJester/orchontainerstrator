@@ -1,0 +1,10 @@
+# Test stage "compose": Topology from files/compose/ in the mender-orchestrator
+# bbappend, rootfs Artifact name rootfs-c2. Use as an override:
+#   kas build ../kas/orchontainerstrator-qemuarm64.yml:../kas/stage-compose.yml:tyj-local.yml:...
+header:
+  version: 20
+
+local_conf_header:
+  orchontainerstrator-stage: |
+    ORCHONTAINER_STAGE = "compose"
+    MENDER_ARTIFACT_NAME = "rootfs-c2"

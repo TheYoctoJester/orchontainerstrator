@@ -1,0 +1,10 @@
+# Test stage "llm": Topology from files/llm/ in the mender-orchestrator
+# bbappend, rootfs Artifact name rootfs-c3. Use as an override:
+#   kas build ../kas/orchontainerstrator-qemuarm64.yml:../kas/stage-llm.yml:tyj-local.yml:...
+header:
+  version: 20
+
+local_conf_header:
+  orchontainerstrator-stage: |
+    ORCHONTAINER_STAGE = "llm"
+    MENDER_ARTIFACT_NAME = "rootfs-c3"

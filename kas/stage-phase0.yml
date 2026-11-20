@@ -1,0 +1,10 @@
+# Test stage "phase0": Topology from files/phase0/ in the mender-orchestrator
+# bbappend, rootfs Artifact name rootfs-v1. Use as an override:
+#   kas build ../kas/orchontainerstrator-qemuarm64.yml:../kas/stage-phase0.yml:tyj-local.yml:...
+header:
+  version: 20
+
+local_conf_header:
+  orchontainerstrator-stage: |
+    ORCHONTAINER_STAGE = "phase0"
+    MENDER_ARTIFACT_NAME = "rootfs-v1"
