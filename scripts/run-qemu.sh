@@ -3,7 +3,7 @@
 # The disk is a working copy, so Mender updates persist across runs.
 #   scripts/run-qemu.sh          boot the existing working copy
 #   scripts/run-qemu.sh --reset  start over from the freshly built image
-# SSH: ssh -p 2222 root@localhost
+# SSH: ssh -p 2222 root@localhost; the app is forwarded to localhost:18080
 set -e
 
 TOP=$(cd "$(dirname "$0")/.." && pwd)
@@ -33,7 +33,7 @@ exec qemu-system-aarch64 \
     -uuid "$(cat "$RUN/uuid")" \
     -drive file="$RUN/disk.img",if=none,format=raw,id=hd0 \
     -device virtio-blk-pci,drive=hd0 \
-    -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+    -netdev user,id=net0,hostfwd=tcp::2222-:22,hostfwd=tcp::18080-:8080 \
     -device virtio-net-pci,netdev=net0 \
     -object rng-random,filename=/dev/urandom,id=rng0 \
     -device virtio-rng-pci,rng=rng0 \
