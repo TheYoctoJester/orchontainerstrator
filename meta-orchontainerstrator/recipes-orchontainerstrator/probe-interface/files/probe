@@ -20,7 +20,8 @@ NONE_MARKER="$BASE/provides.previous-none"
 mkdir -p "$BASE"
 
 log() {
-    echo "$(date -Iseconds) [$COMPONENT_TYPE] $*" >> "$BASE/log"
+    # busybox date: no -I
+    echo "$(date '+%Y-%m-%dT%H:%M:%S%z') [$COMPONENT_TYPE] $*" >> "$BASE/log"
 }
 
 log "$STATE args='$*' cwd=$(pwd)"
