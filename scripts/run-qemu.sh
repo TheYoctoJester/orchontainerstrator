@@ -16,6 +16,11 @@ BIOS="$DEPLOY/QEMU_EFI.fd"
 test -f "$IMG" || { echo "no .uefiimg in $DEPLOY" >&2; exit 1; }
 test -f "$BIOS" || { echo "no QEMU_EFI.fd in $DEPLOY" >&2; exit 1; }
 
+# SMBIOS system UUID of this "board". systemd derives the machine-id from it
+# under QEMU (on hardware: systemd.machine_id=firmware), so the machine-id
+# stays stable without storing it. Kept across --reset like a serial number.
+test -f "$RUN/uuid" || cat /proc/sys/kernel/random/uuid > "$RUN/uuid"
+
 if [ "$1" = "--reset" ] || [ ! -f "$RUN/disk.img" ]; then
     echo "creating working copy of $(basename "$IMG")"
     cp --sparse=always "$IMG" "$RUN/disk.img"
@@ -25,6 +30,7 @@ exec qemu-system-aarch64 \
     -machine virt -cpu cortex-a57 -smp 4 -m 3072 \
     -accel tcg,thread=multi \
     -bios "$BIOS" \
+    -uuid "$(cat "$RUN/uuid")" \
     -drive file="$RUN/disk.img",if=none,format=raw,id=hd0 \
     -device virtio-blk-pci,drive=hd0 \
     -netdev user,id=net0,hostfwd=tcp::2222-:22 \
