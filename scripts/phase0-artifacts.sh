@@ -20,6 +20,10 @@ DEPLOY="$TOP/my-qemuarm64/build/tmp/deploy/images/qemuarm64"
 OUT="$TOP/artifacts/phase0"
 SYSTEM_TYPE="orchontainer"
 DEVICE_TYPE="qemuarm64"
+# Where scripts/phase0-push.sh puts the Artifacts on the device. artifact_path
+# wins when the file exists (standalone mode); otherwise Orchestrator falls
+# back to artifact_name (server-managed mode).
+DEVICE_DIR="/data/phase0"
 PATH="$TOP/.venv/bin:$PATH"
 
 mkdir -p "$OUT"
@@ -68,10 +72,12 @@ system_types_compatible: ["$SYSTEM_TYPE"]
 component_types:
   $DEVICE_TYPE:
     artifact_name: $rootfs
+    artifact_path: $DEVICE_DIR/$rootfs.mender
     update_strategy:
       order: 10
   probe:
     artifact_name: $probe
+    artifact_path: $DEVICE_DIR/$probe.mender
     update_strategy:
       order: 20
 EOF
