@@ -87,6 +87,9 @@ local_conf_header:
     EXTRA_IMAGEDEPENDS += "edk2-firmware"
     MENDER_STORAGE_DEVICE = "/dev/vda"
     MENDER_STORAGE_TOTAL_SIZE_MB = "8192"
+    # scripts/run-qemu.sh has no virtio console; a getty waiting for hvc0
+    # holds up multi-user.target until it times out.
+    SERIAL_CONSOLES = "115200;ttyAMA0"
     # Later rootfs versions are derived from this one by scripts/phase0-artifacts.sh
     MENDER_ARTIFACT_NAME = "rootfs-v1"
 
