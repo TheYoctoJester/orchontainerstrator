@@ -31,7 +31,8 @@ mkdir -p "$OUT"
 cd "$OUT"
 
 # --- rootfs ---------------------------------------------------------------
-BUILT="$DEPLOY/orchontainerstrator-image-qemuarm64.mender"  # symlink to latest build
+# BUILT=<file> uses a specific build instead of the latest one
+BUILT="${BUILT:-$DEPLOY/orchontainerstrator-image-qemuarm64.mender}"
 test -f "$BUILT" || { echo "no built .mender in $DEPLOY" >&2; exit 1; }
 rm -rf dump && mkdir dump
 mender-artifact dump --files dump "$BUILT"

@@ -4,3 +4,4 @@
 /my-*/
 /.venv/
 /artifacts/
+/replay-*.log

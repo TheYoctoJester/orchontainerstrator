@@ -5,7 +5,7 @@
 #
 # Each non-comment line of the stage file is one Manifest:
 #   <name> <component_type>=<artifact_name>:<order> ...
-# "@rootfs" stands for the Artifact name of the latest build. Manifest names
+# "@rootfs" stands for the Artifact name of the build. Manifest names
 # get the build as prefix (rootfs-c3 -> c3-<name>) because names must be
 # unique on the server.
 #
@@ -21,7 +21,9 @@ PATH="$TOP/.venv/bin:$PATH"
 STAGE="$1"
 test -f "$STAGE" || { echo "usage: $0 manifests/<stage>.txt" >&2; exit 1; }
 
-ROOTFS=$(mender-artifact read "$DEPLOY/orchontainerstrator-image-qemuarm64.mender" 2>/dev/null \
+# BUILT=<file> uses a specific build instead of the latest one
+BUILT="${BUILT:-$DEPLOY/orchontainerstrator-image-qemuarm64.mender}"
+ROOTFS=$(mender-artifact read "$BUILT" 2>/dev/null \
     | sed -n 's/^  Name: //p' | head -n1)
 test -n "$ROOTFS" || { echo "cannot read the built rootfs Artifact name" >&2; exit 1; }
 PREFIX="${ROOTFS#rootfs-}-"
