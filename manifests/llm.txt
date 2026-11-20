@@ -1,0 +1,12 @@
+# Model Interface tests. The rollout Manifest is validated against the
+# previous Topology (no model Component); the new rootfs brings the
+# Topology with it. All later Manifests must name the model.
+l0-rollout       qemuarm64=@rootfs:10 app=app-v2:20 probe=probe-v1:30
+# First LLM install: the model before the server that needs it.
+l1-first-llm     qemuarm64=@rootfs:10 model=model-smollm2-135m:15 app=llm-b5074:20 probe=probe-v1:30
+# Model update, same architecture: switch slot, restart, self-test.
+l2-model-360m    qemuarm64=@rootfs:10 app=llm-b5074:20 model=model-smollm2-360m:25 probe=probe-v1:30
+# Qwen3 on a server that cannot load it: self-test fails, back to 360m.
+l3-qwen3-old     qemuarm64=@rootfs:10 app=llm-b5074:20 model=model-qwen3-0.6b:25 probe=probe-v1:30
+# Server update first, then Qwen3.
+l4-qwen3-new     qemuarm64=@rootfs:10 app=llm-b5106:20 model=model-qwen3-0.6b:25 probe=probe-v1:30

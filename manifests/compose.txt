@@ -1,0 +1,6 @@
+# Compose Interface tests (Topology: qemuarm64, app, probe)
+a1-app-v1        qemuarm64=@rootfs:10 app=app-v1:20        probe=probe-v1:30
+a2-app-v2        qemuarm64=@rootfs:10 app=app-v2:20        probe=probe-v1:30
+a3-app-broken    qemuarm64=@rootfs:10 app=app-v3-broken:20 probe=probe-v1:30
+# inject probe ArtifactCommit.FAIL first: app rolled back after its commit
+a4-commit-fails  qemuarm64=@rootfs:10 app=app-v1:20        probe=probe-v2:30
