@@ -11,9 +11,9 @@ DEPLOY="$TOP/my-qemuarm64/build/tmp/deploy/images/qemuarm64"
 RUN="$TOP/my-qemuarm64/run"
 mkdir -p "$RUN"
 
-IMG=$(ls "$DEPLOY"/orchontainerstrator-image-qemuarm64*.uefiimg 2>/dev/null | head -n1)
+IMG="$DEPLOY/orchontainerstrator-image-qemuarm64.uefiimg"  # symlink to latest build
 BIOS="$DEPLOY/QEMU_EFI.fd"
-test -n "$IMG" || { echo "no .uefiimg in $DEPLOY" >&2; exit 1; }
+test -f "$IMG" || { echo "no .uefiimg in $DEPLOY" >&2; exit 1; }
 test -f "$BIOS" || { echo "no QEMU_EFI.fd in $DEPLOY" >&2; exit 1; }
 
 if [ "$1" = "--reset" ] || [ ! -f "$RUN/disk.img" ]; then

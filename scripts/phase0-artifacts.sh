@@ -26,7 +26,7 @@ mkdir -p "$OUT"
 cd "$OUT"
 
 # --- rootfs ---------------------------------------------------------------
-BUILT=$(ls "$DEPLOY"/orchontainerstrator-image-qemuarm64*.mender | head -n1)
+BUILT="$DEPLOY/orchontainerstrator-image-qemuarm64.mender"  # symlink to latest build
 test -f "$BUILT" || { echo "no built .mender in $DEPLOY" >&2; exit 1; }
 cp "$BUILT" rootfs-v1.mender
 
