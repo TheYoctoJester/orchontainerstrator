@@ -1,9 +1,9 @@
 #!/bin/sh
 # Phase 0 instrument Interface for Mender Orchestrator (protocol v1).
 #
-# Logs every invocation (state, arguments, File API contents) and keeps
-# Provides in current/previous files so that install, commit and rollback
-# (also after a commit) behave like a real Component.
+# Logs every invocation (state, arguments, File API contents) to the journal
+# and keeps Provides in current/previous files so that install, commit and
+# rollback (also after a commit) behave like a real Component.
 #
 # Failure injection: touch $BASE/<State>.FAIL
 # Reboot behaviour:  echo Automatic > $BASE/NeedsArtifactReboot
@@ -20,8 +20,8 @@ NONE_MARKER="$BASE/provides.previous-none"
 mkdir -p "$BASE"
 
 log() {
-    # busybox date: no -I
-    echo "$(date '+%Y-%m-%dT%H:%M:%S%z') [$COMPONENT_TYPE] $*" >> "$BASE/log"
+    # The journal is the only persistent log; read with journalctl -t probe
+    logger -t probe "[$COMPONENT_TYPE] $*"
 }
 
 log "$STATE args='$*' cwd=$(pwd)"
