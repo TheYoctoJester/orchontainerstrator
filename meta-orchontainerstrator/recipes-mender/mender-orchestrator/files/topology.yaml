@@ -15,6 +15,11 @@ components:
   - component_type: app
     interface: docker-compose
 
+  # The LLM model file, A/B slots on /apps; the Interface self-tests it
+  # against the running inference server.
+  - component_type: model
+    interface: llm-model
+
   # Phase 0 instrument: logs every call, supports failure injection.
   - component_type: probe
     interface: probe

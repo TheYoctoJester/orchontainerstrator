@@ -1,0 +1,190 @@
+#!/bin/sh
+# Mender Orchestrator Interface (protocol v1) for an LLM model file in A/B
+# slots on the apps partition.
+#
+#   /apps/models/a, /apps/models/b   slots, each holding model.gguf
+#   /apps/models/active              symlink to the active slot
+#
+# Download streams the model into the inactive slot. ArtifactInstall switches
+# the symlink, restarts the containers that use the model (label
+# orchontainer.llm-model-consumer=true; they bind-mount /apps/models/active,
+# which Docker resolves on start) and runs a self-test: the server must come
+# up healthy and answer a short completion. A failure there rolls the model
+# back, so a model the running inference server cannot load never stays
+# active. The Interface name equals the Artifact payload type (llm-model).
+
+STATE="$1"
+FILES="$2"
+COMPONENT_TYPE="$3"
+
+SLOTS="/apps/models"
+ACTIVE="$SLOTS/active"
+BASE="/data/orchontainerstrator/$COMPONENT_TYPE"
+CURRENT="$BASE/provides.current"
+PREVIOUS="$BASE/provides.previous"
+NONE_MARKER="$BASE/provides.previous-none"
+PENDING_SLOT="$BASE/slot.pending"
+PREVIOUS_SLOT="$BASE/slot.previous"
+
+# Overridable in /etc/orchontainerstrator/llm-model.conf
+CONSUMER_LABEL="orchontainer.llm-model-consumer=true"
+SERVER_URL="http://127.0.0.1:8080"
+SELFTEST_TIMEOUT=180
+SELFTEST_PROMPT="The capital of France is"
+test -f /etc/orchontainerstrator/llm-model.conf && . /etc/orchontainerstrator/llm-model.conf
+
+log() {
+    logger -t llm-model-interface "[$COMPONENT_TYPE] $*"
+}
+
+artifact_provides() {
+    jq -r '.artifact_provides.artifact_name // empty | "artifact_name=\(.)"' "$FILES/header/header-info"
+    jq -r '.artifact_provides // {} | to_entries[] | "\(.key)=\(.value)"' "$FILES/header/type-info"
+}
+
+active_slot() {
+    readlink "$ACTIVE" 2>/dev/null
+}
+
+# Point the active symlink at slot $1 (a or b), or remove it for "none".
+switch_to() {
+    if [ "$1" = none ]; then
+        rm -f "$ACTIVE"
+    else
+        ln -sfn "$1" "$ACTIVE.new" && mv -T "$ACTIVE.new" "$ACTIVE"
+    fi
+    sync "$SLOTS"
+    log "active slot: $1"
+}
+
+consumers() {
+    docker ps -a --quiet --filter "label=$CONSUMER_LABEL"
+}
+
+# Restart the consumers and check that each one serves the model. Without
+# consumers (first install, before the app exists) only the file is checked.
+restart_and_selftest() {
+    ids=$(consumers)
+    if [ -z "$ids" ]; then
+        log "no consumer containers, skipping the self-test"
+        return 0
+    fi
+    for id in $ids; do
+        docker restart "$id" > /dev/null || return 1
+        # Baseline after the restart: docker restart resets RestartCount,
+        # and an increase from here means the server crashed on the model.
+        restarts=$(docker inspect -f '{{.RestartCount}}' "$id")
+        t=0
+        while :; do
+            state=$(docker inspect -f '{{.State.Status}} {{.RestartCount}}' "$id")
+            if [ "${state%% *}" != running ] || [ "${state##* }" != "$restarts" ]; then
+                log "consumer $id stopped or restarted while loading the model: $state"
+                docker logs --tail 5 "$id" 2>&1 | while read -r line; do log "  $line"; done
+                return 1
+            fi
+            docker exec "$id" curl -sf "$SERVER_URL/health" > /dev/null 2>&1 && break
+            t=$((t + 2))
+            if [ $t -ge "$SELFTEST_TIMEOUT" ]; then
+                log "consumer $id not healthy after ${SELFTEST_TIMEOUT}s"
+                return 1
+            fi
+            sleep 2
+        done
+        answer=$(docker exec "$id" curl -sf -m 120 "$SERVER_URL/completion" \
+            -d "{\"prompt\": \"$SELFTEST_PROMPT\", \"n_predict\": 8}" | jq -r '.content // empty')
+        if [ -z "$answer" ]; then
+            log "consumer $id gave no completion"
+            return 1
+        fi
+        log "self-test on $id: \"$SELFTEST_PROMPT\" ->$(echo "$answer" | tr '\n' ' ')"
+    done
+}
+
+mkdir -p "$BASE" "$SLOTS"
+
+case "$STATE" in
+    Identity)
+        id=$(/usr/share/mender/identity/mender-device-identity | sed -rn '1s/^[^=]+=//p')
+        echo "id=${id}-${COMPONENT_TYPE}"
+        ;;
+
+    Provides)
+        test -f "$CURRENT" && cat "$CURRENT"
+        ;;
+
+    Inventory)
+        version=$(sed -n 's/^artifact_name=//p' "$CURRENT" 2>/dev/null)
+        echo "version=${version:-none}"
+        echo "active_slot=$(active_slot || echo none)"
+        ;;
+
+    SupportsRollback)
+        echo "Yes"
+        ;;
+
+    NeedsArtifactReboot)
+        echo "No"
+        ;;
+
+    Download)
+        # Into the inactive slot only; checksums are verified after the
+        # streams end, activation happens in ArtifactInstall.
+        if [ "$(active_slot)" = a ]; then slot=b; else slot=a; fi
+        rm -rf "${SLOTS:?}/$slot" && mkdir -p "$SLOTS/$slot"
+        count=0
+        while :; do
+            stream=$(cat "$FILES/stream-next")
+            [ -z "$stream" ] && break
+            count=$((count + 1))
+            cat "$FILES/$stream" > "$SLOTS/$slot/model.gguf" || exit 1
+        done
+        if [ "$count" -ne 1 ]; then
+            log "expected exactly one payload file, got $count"
+            exit 1
+        fi
+        sync "$SLOTS/$slot/model.gguf"
+        echo "$slot" > "$PENDING_SLOT"
+        log "downloaded into slot $slot ($(wc -c < "$SLOTS/$slot/model.gguf") bytes)"
+        ;;
+
+    ArtifactInstall)
+        slot=$(cat "$PENDING_SLOT" 2>/dev/null)
+        if [ -z "$slot" ] || [ "$(dd if="$SLOTS/$slot/model.gguf" bs=4 count=1 2>/dev/null)" != GGUF ]; then
+            log "no GGUF model in the pending slot '$slot'"
+            exit 1
+        fi
+        rm -f "$PREVIOUS" "$NONE_MARKER"
+        if [ -f "$CURRENT" ]; then cp "$CURRENT" "$PREVIOUS"; else touch "$NONE_MARKER"; fi
+        echo "$(active_slot || echo none)" > "$PREVIOUS_SLOT"
+        artifact_provides > "$CURRENT.tmp" || exit 1
+        mv "$CURRENT.tmp" "$CURRENT"
+        sync "$BASE"
+        switch_to "$slot"
+        restart_and_selftest || exit 1
+        ;;
+
+    ArtifactRollback)
+        if [ -f "$PREVIOUS_SLOT" ]; then
+            switch_to "$(cat "$PREVIOUS_SLOT")"
+            restart_and_selftest || log "previous model failed its self-test after the rollback"
+        fi
+        if [ -f "$PREVIOUS" ]; then
+            mv "$PREVIOUS" "$CURRENT"
+        elif [ -f "$NONE_MARKER" ]; then
+            rm -f "$CURRENT" "$NONE_MARKER"
+        fi
+        sync "$BASE"
+        log "rolled back to: $(tr '\n' ' ' < "$CURRENT" 2>/dev/null)"
+        ;;
+
+    Cleanup)
+        rm -f "$PREVIOUS" "$NONE_MARKER" "$PREVIOUS_SLOT" "$PENDING_SLOT"
+        ;;
+
+    *)
+        # ArtifactCommit has nothing to do: the switch already happened and
+        # the previous slot stays intact until the next Download.
+        ;;
+esac
+
+exit 0

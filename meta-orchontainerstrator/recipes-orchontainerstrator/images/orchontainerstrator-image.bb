@@ -14,6 +14,7 @@ IMAGE_INSTALL = " \
     mender-docker-compose \
     compose-interface \
     container-storage \
+    llm-model-interface \
     persistent-journal \
     persistent-state \
     probe-interface \
