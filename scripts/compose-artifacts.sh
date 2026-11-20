@@ -38,8 +38,13 @@ for dir in "$TOP"/compose/*/; do
     # Fetch arm64 images ourselves so the archive tag matches the manifest's
     # image: reference (docker load tags from it).
     for image in $(sed -n 's/^[[:space:]]*image:[[:space:]]*//p' "$dir"/*.yaml); do
+        case "$image" in
+            *.*/*)         ref="$image" ;;          # registry host given
+            */*)           ref="docker.io/$image" ;;
+            *)             ref="docker.io/library/$image" ;;
+        esac
         skopeo copy --override-os linux --override-arch "$ARCH" \
-            "docker://docker.io/library/$image" \
+            "docker://$ref" \
             "docker-archive:$images/$(echo "$image" | tr '/:@' '_').tar:$image"
     done
     "$GEN_SRC/src/gen_docker-compose" \
