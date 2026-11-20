@@ -21,6 +21,11 @@ test -f "$BIOS" || { echo "no QEMU_EFI.fd in $DEPLOY" >&2; exit 1; }
 # under QEMU (on hardware: systemd.machine_id=firmware), so the machine-id
 # stays stable without storing it. Kept across --reset like a serial number.
 test -f "$RUN/uuid" || cat /proc/sys/kernel/random/uuid > "$RUN/uuid"
+# MAC address from the same UUID. The Mender identity is the MAC, and every
+# QEMU guest on the default MAC 52:54:00:12:34:56 would look like the same
+# device to the server; scripts/mender-api.sh finds this one by run/mac.
+MAC="52:54:00:$(cut -c1-6 "$RUN/uuid" | sed 's/\(..\)/\1:/g; s/:$//')"
+echo "$MAC" > "$RUN/mac"
 
 if [ "$1" = "--reset" ] || [ ! -f "$RUN/disk.img" ]; then
     echo "creating working copy of $(basename "$IMG")"
@@ -35,7 +40,7 @@ exec qemu-system-aarch64 \
     -drive file="$RUN/disk.img",if=none,format=raw,id=hd0 \
     -device virtio-blk-pci,drive=hd0 \
     -netdev user,id=net0,hostfwd=tcp::2222-:22,hostfwd=tcp::18080-:8080 \
-    -device virtio-net-pci,netdev=net0 \
+    -device virtio-net-pci,netdev=net0,mac="$MAC" \
     -object rng-random,filename=/dev/urandom,id=rng0 \
     -device virtio-rng-pci,rng=rng0 \
     -nographic

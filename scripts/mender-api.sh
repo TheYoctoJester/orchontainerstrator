@@ -8,15 +8,18 @@
 #   mender-api.sh deploy <deployment-name> <artifact-or-manifest-name> [timeout-s]
 #                   waits, prints the device status (success, failure,
 #                   already-installed, ...) as the last line
-#   mender-api.sh device-id               device with the QEMU MAC
+#   mender-api.sh device-id               the device with this VM's MAC
 #   mender-api.sh accept <pubkey-base64>  accept the matching auth set
 #   mender-api.sh list-project            this project's Artifacts and Manifests
 #   mender-api.sh delete-project          delete them and decommission the device
+#
+# The device is the one with the MAC from my-qemuarm64/run/mac (written by
+# scripts/run-qemu.sh), or DEVICE_MAC.
 set -e
 
 : "${MENDER_HOSTED_PAT:?}"
+TOP=$(cd "$(dirname "$0")/.." && pwd)
 SERVER="https://hosted.mender.io/api/management"
-MAC="52:54:00:12:34:56"
 # Everything this project uploads; other releases are never touched.
 ARTIFACT_RE='^(rootfs-|probe-|app-|llm-|model-)'
 MANIFEST_RE='^(m[1-3]-|a[1-4]-|c[0-9]+-|v1-)'
@@ -36,14 +39,16 @@ upload() {
 }
 
 device_id() {
+    local mac="${DEVICE_MAC:-$(cat "$TOP/my-qemuarm64/run/mac" 2>/dev/null)}"
+    [ -n "$mac" ] || { echo "no MAC: start scripts/run-qemu.sh or set DEVICE_MAC" >&2; return 1; }
     api "$SERVER/v2/devauth/devices?per_page=500" \
-        | jq -r --arg mac "$MAC" '.[] | select(.identity_data.mac == $mac) | .id'
+        | jq -r --arg mac "$mac" '.[] | select(.identity_data.mac == $mac) | .id'
 }
 
 deploy() {
     local name="$1" artifact="$2" timeout="${3:-1800}" dev id end st ds last=""
     dev=$(device_id)
-    [ -n "$dev" ] || { echo "no device with MAC $MAC" >&2; return 1; }
+    [ -n "$dev" ] || { echo "device not found on the server" >&2; return 1; }
     id=$(api -D - -o /dev/null -H 'Content-Type: application/json' \
         -d "{\"name\":\"$name\",\"artifact_name\":\"$artifact\",\"devices\":[\"$dev\"]}" \
         "$SERVER/v1/deployments/deployments" | tr -d '\r' | sed -n 's|^location: .*/||p')
