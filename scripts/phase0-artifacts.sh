@@ -4,7 +4,9 @@
 #   rootfs-v1.mender   the built rootfs Artifact (renamed copy)
 #   rootfs-v2.mender   same rootfs payload, re-written as rootfs-v2
 #   probe-v1/v2.mender module-image Artifacts for the "probe" Interface
-#   m1..m3 Manifests:
+#   m1..m3 Manifests, in two variants:
+#     ./                 with artifact_path, for standalone runs (phase0-push.sh)
+#     managed/           artifact_name only, for upload to the Mender server
 #     m1-probe-v1        rootfs-v1 (already installed -> expect skip) + probe-v1
 #     m2-rootfs-v2       rootfs-v2 + probe-v2 (reboot, both installed in order)
 #     m3-rollback        rootfs-v1 + probe-v1; inject probe ArtifactCommit.FAIL
@@ -20,9 +22,9 @@ DEPLOY="$TOP/my-qemuarm64/build/tmp/deploy/images/qemuarm64"
 OUT="$TOP/artifacts/phase0"
 SYSTEM_TYPE="orchontainer"
 DEVICE_TYPE="qemuarm64"
-# Where scripts/phase0-push.sh puts the Artifacts on the device. artifact_path
-# wins when the file exists (standalone mode); otherwise Orchestrator falls
-# back to artifact_name (server-managed mode).
+# Where scripts/phase0-push.sh puts the Artifacts on the device. A missing
+# artifact_path falls back to artifact_name with a warning; the managed
+# variant leaves the paths out so server deployments log no such warnings.
 DEVICE_DIR="/data/phase0"
 PATH="$TOP/.venv/bin:$PATH"
 
@@ -61,34 +63,40 @@ done
 rm -f probe-payload
 
 # --- manifests ------------------------------------------------------------
-manifest() {
-    name="$1" rootfs="$2" probe="$3"
-    cat > "$name.yaml" <<EOF
-api_version: "mender/v1"
-kind: "manifest"
-name: "$name"
-system_types_compatible: ["$SYSTEM_TYPE"]
-
-component_types:
-  $DEVICE_TYPE:
-    artifact_name: $rootfs
-    artifact_path: $DEVICE_DIR/$rootfs.mender
-    update_strategy:
-      order: 10
-  probe:
-    artifact_name: $probe
-    artifact_path: $DEVICE_DIR/$probe.mender
-    update_strategy:
-      order: 20
-EOF
-    mender-orchestrator-manifest-gen \
-        --system-type "$SYSTEM_TYPE" \
-        --output-path "$name.mender" \
-        "$name.yaml"
+# manifest <dir> <name> <rootfs> <probe>
+# Entries get an artifact_path when $LOCAL is set.
+entry() {
+    echo "  $1:"
+    echo "    artifact_name: $2"
+    test -n "$LOCAL" && echo "    artifact_path: $DEVICE_DIR/$2.mender"
+    echo "    update_strategy:"
+    echo "      order: $3"
 }
 
-manifest m1-probe-v1  rootfs-v1 probe-v1
-manifest m2-rootfs-v2 rootfs-v2 probe-v2
-manifest m3-rollback  rootfs-v1 probe-v1
+manifest() {
+    dir="$1" name="$2" rootfs="$3" probe="$4"
+    {
+        echo 'api_version: "mender/v1"'
+        echo 'kind: "manifest"'
+        echo "name: \"$name\""
+        echo "system_types_compatible: [\"$SYSTEM_TYPE\"]"
+        echo
+        echo "component_types:"
+        entry "$DEVICE_TYPE" "$rootfs" 10
+        entry probe "$probe" 20
+    } > "$dir/$name.yaml"
+    mender-orchestrator-manifest-gen \
+        --system-type "$SYSTEM_TYPE" \
+        --output-path "$dir/$name.mender" \
+        "$dir/$name.yaml"
+}
 
-ls -la "$OUT"
+mkdir -p managed
+for dir in . managed; do
+    LOCAL=; test "$dir" = . && LOCAL=1
+    manifest "$dir" m1-probe-v1  rootfs-v1 probe-v1
+    manifest "$dir" m2-rootfs-v2 rootfs-v2 probe-v2
+    manifest "$dir" m3-rollback  rootfs-v1 probe-v1
+done
+
+ls -la "$OUT" "$OUT/managed"
