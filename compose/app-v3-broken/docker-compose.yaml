@@ -1,0 +1,17 @@
+# Minimal test composition for the compose Interface: a static page served
+# by busybox httpd, gated by a healthcheck.
+# Broken on purpose: the healthcheck probes a port nothing listens on, so
+# the container never becomes healthy and the install must roll back.
+services:
+  web:
+    image: busybox:1.37.0
+    command: ["sh", "-c", "mkdir -p /www && echo 'orchontainer app v3' > /www/index.html && exec httpd -f -p 8080 -h /www"]
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9999/"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
