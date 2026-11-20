@@ -1,0 +1,12 @@
+# Root SSH access for scripts/replay.sh and for poking around: OpenSSH,
+# root login with the key from keys/replay_ed25519.pub (scripts/setup.sh
+# generates it) and nothing else. Root has no password; the image class
+# locks it without empty-root-password, so there is no console login.
+# Demo only, leave this file out for anything else.
+header:
+  version: 20
+
+local_conf_header:
+  orchontainerstrator-demo-access: |
+    EXTRA_IMAGE_FEATURES:append = " ssh-server-openssh allow-root-login"
+    CORE_IMAGE_EXTRA_INSTALL:append = " demo-ssh-key"

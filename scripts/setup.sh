@@ -6,6 +6,8 @@
 #   - mender-orchestrator-manifest-gen from mender-orchestrator-support 1.0.0,
 #     plus python yq, in .venv
 #   - the GGUF models for the model Component
+#   - keys/replay_ed25519, the root SSH key for the test scripts
+#     (kas/demo-access.yml builds its public half into the image)
 set -e
 
 TOP=$(cd "$(dirname "$0")/.." && pwd)
@@ -30,6 +32,10 @@ if [ ! -x "$TOP/.venv/bin/mender-orchestrator-manifest-gen" ]; then
         "$DL/mender-orchestrator-support/modules/mender-orchestrator-manifest/module-artifact-gen/mender-orchestrator-manifest-gen" \
         "$TOP/.venv/bin/"
 fi
+
+mkdir -p "$TOP/keys"
+test -f "$TOP/keys/replay_ed25519" || \
+    ssh-keygen -q -t ed25519 -N '' -C orchontainerstrator-replay -f "$TOP/keys/replay_ed25519"
 
 model() {
     test -f "$DL/models/$1" || curl -sSL --fail -o "$DL/models/$1" "$2"

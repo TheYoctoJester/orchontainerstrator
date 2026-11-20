@@ -3,7 +3,8 @@
 # The disk is a working copy, so Mender updates persist across runs.
 #   scripts/run-qemu.sh          boot the existing working copy
 #   scripts/run-qemu.sh --reset  start over from the freshly built image
-# SSH: ssh -p 2222 root@localhost; the app is forwarded to localhost:18080
+# SSH: ssh -i keys/replay_ed25519 -p 2222 root@localhost (kas/demo-access.yml);
+# the app is forwarded to localhost:18080
 set -e
 
 TOP=$(cd "$(dirname "$0")/.." && pwd)

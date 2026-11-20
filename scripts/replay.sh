@@ -34,7 +34,8 @@ mkdir -p "$BUILDS" "$(dirname "$RESULTS")"
 log() { echo "$(date +%T) $*" >&2; }
 
 dev() {
-    ssh -p 2222 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+    ssh -p 2222 -i "$TOP/keys/replay_ed25519" -o IdentitiesOnly=yes \
+        -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
         -o LogLevel=ERROR -o ConnectTimeout=5 root@localhost "$@"
 }
 

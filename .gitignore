@@ -5,3 +5,4 @@
 /.venv/
 /artifacts/
 /replay-*.log
+/keys/

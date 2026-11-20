@@ -4,7 +4,7 @@
 set -e
 
 TOP=$(cd "$(dirname "$0")/.." && pwd)
-SSH="ssh -p 2222 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR root@localhost"
+SSH="ssh -p 2222 -i $TOP/keys/replay_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o LogLevel=ERROR root@localhost"
 
 $SSH 'mkdir -p /data/phase0'
 for f in "$TOP"/artifacts/phase0/*.mender "$TOP"/artifacts/phase0/*.yaml; do
